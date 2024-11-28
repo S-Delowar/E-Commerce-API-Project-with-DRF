@@ -65,8 +65,9 @@ class ShopModelsTest(TestCase):
 
 #================================= Tests for API Endpoints ============================= 
 
-# Tests for API endpoints
-class CategoryAPITest(APITestCase):
+# Tests for Category APIs
+# -----------------------
+class CategoryAPITests(APITestCase):
     @classmethod
     def setUpTestData(cls):
         cls.category1 = Category.objects.create(name="New Category 1")
@@ -85,7 +86,7 @@ class CategoryAPITest(APITestCase):
         )
         
     # Test for getting category list for anyone   
-    def test_get_categories(self):
+    def test_get_category_list(self):
         response = self.client.get(reverse('category-list'))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 2)
@@ -168,5 +169,135 @@ class CategoryAPITest(APITestCase):
         response = self.client.get(reverse('category-detail', args=[self.category1.id]))
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
            
+
+
+# Tests for Product APIs
+# -----------------------
+class ProductAPITests(APITestCase):
+    
+    @classmethod
+    def setUpTestData(cls):
+        cls.staff_user = get_user_model().objects.create_user(
+            username='staff_user', 
+            email='staff_user@mail.com',
+            password='staffpass123',
+            is_staff = True,
+        )
+        cls.non_staff_user = get_user_model().objects.create_user(
+            username='non_staff_user', 
+            email='non_staff_user@mail.com',
+            password='nonstaffpass123',
+            is_staff=False
+        )
+        cls.category1 = Category.objects.create(name="New Category 1")
+        cls.category2 = Category.objects.create(name="New Category 2")
+        cls.product1 = Product.objects.create(
+            name = 'First Product',
+            description = 'First Description',
+            price = 255.55,
+            category = cls.category1,
+        )
+        cls.product2 = Product.objects.create(
+            name = 'Second Product',
+            description = 'Second Description',
+            price = 100,
+            category = cls.category2,
+        )
+        
+        
+    # Test for getting product-list - any user
+    def test_get_product_list(self):
+        response = self.client.get(reverse('product-list'))
+        # print('product list get ok')
+        # print(response.data)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)      
+    
+        
+    # Test for posting a product to the product list - anonymous, non-staff, staff user
+    def test_post_product(self):
+        new_product_data  = {
+            "name": "New Product",
+            "description": "New Product Description",
+            "price": 500,
+            "category": self.category1.id
+        }
+        # Anonymous user
+        response = self.client.post(reverse('product-list'), new_product_data)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+        # Non-staff user
+        self.client.login(username='non_staff_user', email="non_staff_user@mail.com", password="nonstaffpass123")
+        response = self.client.post(reverse('product-list'), new_product_data)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        
+        
+        # Staff user
+        self.client.login(username='staff_user', email="staff_user@mail.com", password="staffpass123")
+        response = self.client.post(reverse('product-list'), new_product_data)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        most_recent_product = Product.objects.order_by('-created_at').first()
+        self.assertEqual(most_recent_product.name, 'New Product')
+    
+    
+    # Test for getting single product using product id - any user
+    def test_get_product_by_id(self):
+        response = self.client.get(reverse('product-detail', args=[self.product1.id]))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["name"], "First Product")
+        # print('Test done get single product')
+    
+    
+    # Test for modifying a product - anonymous, non-staff, staff user
+    def test_patch_product(self):
+        data = {
+            "name": "Updated Name",
+            "price": 800,
+        }
+        
+        # Anonymous User
+        response = self.client.patch(reverse('product-detail', args=[self.product1.id]), data)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        print('test ok for patch product - anonymous user')
+        
+        # Non-staff user
+        self.client.login(username='non_staff_user', email="non_staff_user@mail.com", password="nonstaffpass123")
+        response = self.client.patch(reverse('product-detail', args=[self.product1.id]),  data)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertNotEqual(self.product1.name, 'Updated Name')
+        self.client.logout()
+        print("test ok for non-staff product updating")
+
+        # Staff User
+        self.client.login(username='staff_user', email="staff_user@mail.com", password="staffpass123")
+        response = self.client.patch(reverse('product-detail', args=[self.product1.id]),  data)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)       
+        self.product1.refresh_from_db()
+        self.assertEqual(self.product1.name, 'Updated Name')
+        self.assertEqual(self.product1.price, 800)
+        print('test is ok for updating product by staff user')
      
     
+    
+    # Test for deleting a product - anonymous, non-staff, staff user
+    def test_delete_product(self):
+        # Anonymous user
+        response = self.client.delete(reverse('product-detail', args=[self.category1.id]))
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        print('test ok for deleting product by unauthorized user')
+     
+        # Non-staff User
+        self.client.login(username='non_staff_user', email="non_staff_user@mail.com", password="nonstaffpass123")
+        response = self.client.delete(reverse('product-detail', args=[self.product1.id]))
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        print('test ok for deleting product by authorized but non-staff user')
+
+        
+        # Staff user
+        self.client.login(username='staff_user', email='staff_user@mail.com', password='staffpass123')
+        response = self.client.delete(reverse('product-detail', args=[self.product1.id]))
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        # verifying that product1 is deleted  
+        response = self.client.get(reverse('product-detail', args=[self.product1.id]))
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.client.logout()
+        print('test ok for deleting product by staff user')

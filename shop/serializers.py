@@ -15,9 +15,10 @@ class ProductImageSerializer(serializers.ModelSerializer):
 
 # Serializer for Product
 class ProductSerializer(serializers.ModelSerializer):
-    category = CategorySerializer()
+    category = serializers.PrimaryKeyRelatedField(queryset=Category.objects.all())
     images = ProductImageSerializer(many=True, read_only=True)
 
     class Meta:
         model = Product
         fields = ['id', 'name', 'description', 'price', 'category', 'images', 'created_at']
+
