@@ -7,7 +7,7 @@ from rest_framework.routers import DefaultRouter
 
 router = DefaultRouter()
 
-router.register(r'cart/items', CartItemViewSet, basename='cart-items')
+router.register(r'cart/items', CartItemViewSet, basename='cart-item')
 # router.register(r'cart-items', CartItemViewSet, basename='cart-items')
 # router.register(r'wishlist', WishListItemViewSet, basename='wishlist')
 
