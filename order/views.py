@@ -5,6 +5,8 @@ from order.serializers import OrderSerializer
 from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.exceptions import ValidationError
+from rest_framework.response import Response
+from rest_framework import status
 
 
 
@@ -20,7 +22,7 @@ class OrderViewSet(viewsets.ModelViewSet):
         cart_items = CartItem.objects.filter(user = self.request.user)
         
         if not cart_items.exists():
-            ValidationError("Your cart is empty")
+            raise ValidationError("Your cart is empty")
         
         total_price = sum(item.total_price for item in cart_items)
         
@@ -43,3 +45,17 @@ class OrderViewSet(viewsets.ModelViewSet):
         
         OrderItem.objects.bulk_create(order_items)
         cart_items.delete()
+        
+    def update(self, request, *args, **kwargs):
+        # Disable the update method
+        return Response(
+            {'detail': 'Method not allowed'},
+            status = status.HTTP_405_METHOD_NOT_ALLOWED
+        )
+        
+    def destroy(self, request, *args, **kwargs):
+        # Disable the delete method
+        return Response(
+            {'detail': 'Method not allowed'},
+            status = status.HTTP_405_METHOD_NOT_ALLOWED
+        )
